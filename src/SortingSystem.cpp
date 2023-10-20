@@ -157,6 +157,9 @@ void SortingSystem::simulate(int simulation_time)
 		// move drives
 		auto new_finished_tasks = move();
 		std::cout << new_finished_tasks.size() << " tasks has been finished" << std::endl;
+        num_of_finished_tasks += new_finished_tasks.size();
+        throughput = (double) num_of_finished_tasks / (double) (timestep + simulation_window);
+        std::cout << "Throughput: " << throughput << std::endl;
 
 		// update tasks
 		for (auto task : new_finished_tasks)

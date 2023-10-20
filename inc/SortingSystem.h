@@ -16,6 +16,8 @@ public:
 
 private:
 	const SortingGrid& G;
+    int num_of_finished_tasks = 0;
+    double throughput;
 
     // record usage of induct stations
     boost::unordered_map<int, int> drives_in_induct_stations; // induct location + #drives that intends to go to this induct station
