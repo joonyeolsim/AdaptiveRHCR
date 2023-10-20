@@ -57,6 +57,7 @@ public:
 
     PriorityGraph priorities;
 
+    int adaptive_window;
 	double g_val;
 	double h_val;
 	double f_val;

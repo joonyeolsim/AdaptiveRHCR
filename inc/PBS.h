@@ -86,14 +86,14 @@ private:
 	bool find_path(PBSNode*  node, int ag);
     bool find_consistent_paths(PBSNode* node, int a); // find paths consistent with priorities
     static void resolve_conflict(const Conflict& conflict, PBSNode* n1, PBSNode* n2);
-	bool generate_child(PBSNode* child, PBSNode* curr);
+	bool generate_child(PBSNode* child, PBSNode* curr, int adaptive_window);
 
 	// conflicts
     void remove_conflicts(list<Conflict>& conflicts, int excluded_agent);
-    void find_conflicts(const list<Conflict>& old_conflicts, list<Conflict> & new_conflicts, int new_agent);
-	void find_conflicts(list<Conflict> & conflicts, int a1, int a2);
-    void find_conflicts(list<Conflict> & new_conflicts, int new_agent);
-    void find_conflicts(list<Conflict> & new_conflicts);
+    void find_conflicts(const list<Conflict>& old_conflicts, list<Conflict> & new_conflicts, int new_agent, int adaptive_window);
+	void find_conflicts(list<Conflict> & conflicts, int a1, int a2, int adaptive_window);
+    void find_conflicts(list<Conflict> & new_conflicts, int new_agent, int adaptive_window);
+    void find_conflicts(list<Conflict> & new_conflicts, int adaptive_window);
 
 	void choose_conflict(PBSNode &parent);
 	void copy_conflicts(const list<Conflict>& conflicts, list<Conflict>& copy, int excluded_agent);

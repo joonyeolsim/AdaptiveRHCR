@@ -86,7 +86,7 @@ void PBS::copy_conflicts(const list<Conflict>& conflicts, list<Conflict>& copy, 
 }
 
 
-void PBS::find_conflicts(list<Conflict>& conflicts, int a1, int a2)
+void PBS::find_conflicts(list<Conflict>& conflicts, int a1, int a2, int adaptive_window)
 {
     clock_t t = clock();
     if (paths[a1] == nullptr || paths[a2] == nullptr)
@@ -131,6 +131,16 @@ void PBS::find_conflicts(list<Conflict>& conflicts, int a1, int a2)
 	}
 	else
 	{
+        cout << "Window: " << window << endl;
+        cout << "Adaptive window: " << adaptive_window << endl;
+        // print min path length of all agent path
+        int min_path_length = std::numeric_limits<int>::max();
+        for (int i = 0; i < num_of_agents; i++)
+        {
+            if (paths[i] != nullptr && (int)paths[i]->size() < min_path_length)
+                min_path_length = paths[i]->size();
+        }
+        cout << "Min path length: " << min_path_length << endl;
 		int size1 = min(window + 1, (int)paths[a1]->size());
 		int size2 = min(window + 1, (int)paths[a2]->size());
 		for (int timestep = 0; timestep < size1; timestep++)
@@ -165,36 +175,36 @@ void PBS::find_conflicts(list<Conflict>& conflicts, int a1, int a2)
 	runtime_detect_conflicts += (double)(std::clock() - t) / CLOCKS_PER_SEC;
 }
 
-void PBS::find_conflicts(list<Conflict>& conflicts)
+void PBS::find_conflicts(list<Conflict>& conflicts, int adaptive_window)
 {
     for (int a1 = 0; a1 < num_of_agents; a1++)
     {
         for (int a2 = a1 + 1; a2 < num_of_agents; a2++)
         {
-            find_conflicts(conflicts, a1, a2);
+            find_conflicts(conflicts, a1, a2, adaptive_window);
         }
     }
 }
 
-void PBS::find_conflicts(list<Conflict>& new_conflicts, int new_agent)
+void PBS::find_conflicts(list<Conflict>& new_conflicts, int new_agent, int adaptive_window)
 {
     for (int a2 = 0; a2 < num_of_agents; a2++)
     {
         if(new_agent == a2)
             continue;
-        find_conflicts(new_conflicts, new_agent, a2);
+        find_conflicts(new_conflicts, new_agent, a2, adaptive_window);
     }
 }
 
 
 
-void PBS::find_conflicts(const list<Conflict>& old_conflicts, list<Conflict>& new_conflicts, int new_agent)
+void PBS::find_conflicts(const list<Conflict>& old_conflicts, list<Conflict>& new_conflicts, int new_agent, int adaptive_window)
 {
     // Copy from parent
     copy_conflicts(old_conflicts, new_conflicts, new_agent);
 
     // detect new conflicts
-    find_conflicts(new_conflicts, new_agent);
+    find_conflicts(new_conflicts, new_agent, adaptive_window);
 }
 
 void PBS::remove_conflicts(list<Conflict>& conflicts, int excluded_agent)
@@ -468,7 +478,7 @@ bool PBS::validate_consistence(const list<Conflict>& conflicts, const PriorityGr
 
 
 
-bool PBS::generate_child(PBSNode* node, PBSNode* parent)
+bool PBS::generate_child(PBSNode* node, PBSNode* parent, int adaptive_window)
 {
 	node->parent = parent;
 	node->g_val = parent->g_val;
@@ -485,7 +495,7 @@ bool PBS::generate_child(PBSNode* node, PBSNode* parent)
         int a = node->priority.first;
         if (!find_path(node, a))
             return false;
-        find_conflicts(node->parent->conflicts, node->conflicts, a);
+        find_conflicts(node->parent->conflicts, node->conflicts, a, adaptive_window);
         if (screen == 2)
         {
             for (auto conflict : node->conflicts)
@@ -558,7 +568,7 @@ bool PBS::generate_root_node()
         }
     }
 
-
+    int path_lower_bound = std::numeric_limits<int>::max();
     for (int i = 0; i < num_of_agents; i++) 
 	{
         if (paths[i] != nullptr)
@@ -590,8 +600,11 @@ bool PBS::generate_root_node()
         paths[i] = &dummy_start->paths.back().second;
         dummy_start->makespan = std::max(dummy_start->makespan, paths[i]->size() - 1);
         dummy_start->g_val += path_cost;
+        if (path.size() < path_lower_bound)
+            path_lower_bound = path.size();
+        dummy_start->adaptive_window = path_lower_bound;
 	}
-    find_conflicts(dummy_start->conflicts);
+    find_conflicts(dummy_start->conflicts, dummy_start->adaptive_window);
     if (!lazyPriority)
     {
         if(!find_consistent_paths(dummy_start, -1))
@@ -605,6 +618,7 @@ bool PBS::generate_root_node()
     best_node = dummy_start;
     HL_num_generated++;
     dummy_start->time_generated = HL_num_generated;
+    dummy_start->adaptive_window = path_lower_bound;
     push_node(dummy_start);
     if (screen == 2)
     {
@@ -711,9 +725,30 @@ bool PBS::run(const vector<State>& starts,
 
         // int loc = std::get<2>(*curr->conflict);
         vector<Path*> copy(paths);
+        int agent_id = 0;
         for (auto & i : n)
         {
-            bool sol = generate_child(i, curr);
+            bool window_flag = false;
+            // determine if we need to change the adaptive window
+            if (agent_id == 0) {
+                if (paths[std::get<0>(curr->conflict)] != nullptr)
+                {
+                    int size = paths[std::get<0>(curr->conflict)]->size();
+                    if (size == curr->adaptive_window)
+                        window_flag = true;
+                }
+            }
+            else if (agent_id == 1)
+            {
+                if (paths[std::get<1>(curr->conflict)] != nullptr)
+                {
+                    int size = paths[std::get<1>(curr->conflict)]->size();
+                    if (size == curr->adaptive_window)
+                        window_flag = true;
+                }
+            }
+
+            bool sol = generate_child(i, curr, curr->adaptive_window);
             if (sol)
             {
                 HL_num_generated++;
@@ -736,6 +771,13 @@ bool PBS::run(const vector<State>& starts,
                     allNodes_table.push_back(i);
                     break;
                 }
+                int min_path_length = std::numeric_limits<int>::max();
+                for (int j = 0; j < num_of_agents; j++)
+                {
+                    if (paths[j] != nullptr && (int)paths[j]->size() < min_path_length)
+                        min_path_length = paths[j]->size();
+                }
+                i->adaptive_window = min_path_length;
             }
 		    else
 		    {
@@ -743,6 +785,7 @@ bool PBS::run(const vector<State>& starts,
 			    i = nullptr;
 		    }
 		    paths = copy;
+            agent_id++;
         }
 
         if (!solution_found)
