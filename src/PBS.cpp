@@ -131,18 +131,8 @@ void PBS::find_conflicts(list<Conflict>& conflicts, int a1, int a2, int adaptive
 	}
 	else
 	{
-//        cout << "Window: " << window << endl;
-//        cout << "Adaptive window: " << adaptive_window << endl;
-        // print min path length of all agent path
-        int min_path_length = std::numeric_limits<int>::max();
-        for (int i = 0; i < num_of_agents; i++)
-        {
-            if (paths[i] != nullptr && (int)paths[i]->size() < min_path_length)
-                min_path_length = paths[i]->size();
-        }
-//        cout << "Min path length: " << min_path_length << endl;
-		int size1 = min(window + 1, (int)paths[a1]->size());
-		int size2 = min(window + 1, (int)paths[a2]->size());
+		int size1 = min(7 + 1, (int)paths[a1]->size());
+		int size2 = min(7 + 1, (int)paths[a2]->size());
 		for (int timestep = 0; timestep < size1; timestep++)
 		{
 			if (size2 <= timestep - k_robust)
@@ -725,29 +715,8 @@ bool PBS::run(const vector<State>& starts,
 
         // int loc = std::get<2>(*curr->conflict);
         vector<Path*> copy(paths);
-        int agent_id = 0;
         for (auto & i : n)
         {
-            bool window_flag = false;
-            // determine if we need to change the adaptive window
-            if (agent_id == 0) {
-                if (paths[std::get<0>(curr->conflict)] != nullptr)
-                {
-                    int size = paths[std::get<0>(curr->conflict)]->size();
-                    if (size == curr->adaptive_window)
-                        window_flag = true;
-                }
-            }
-            else if (agent_id == 1)
-            {
-                if (paths[std::get<1>(curr->conflict)] != nullptr)
-                {
-                    int size = paths[std::get<1>(curr->conflict)]->size();
-                    if (size == curr->adaptive_window)
-                        window_flag = true;
-                }
-            }
-
             bool sol = generate_child(i, curr, curr->adaptive_window);
             if (sol)
             {
@@ -785,7 +754,6 @@ bool PBS::run(const vector<State>& starts,
 			    i = nullptr;
 		    }
 		    paths = copy;
-            agent_id++;
         }
 
         if (!solution_found)
