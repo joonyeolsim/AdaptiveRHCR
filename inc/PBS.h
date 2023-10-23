@@ -84,7 +84,7 @@ private:
 
     // high level search
 	bool find_path(PBSNode*  node, int ag);
-    bool find_consistent_paths(PBSNode* node, int a); // find paths consistent with priorities
+    bool find_consistent_paths(PBSNode* node, int a, int adaptive_window); // find paths consistent with priorities
     static void resolve_conflict(const Conflict& conflict, PBSNode* n1, PBSNode* n2);
 	bool generate_child(PBSNode* child, PBSNode* curr, int adaptive_window);
 
@@ -118,7 +118,7 @@ private:
 
 
 	// validate
-	bool validate_solution();
+	bool validate_solution(int adaptive_window);
     static bool validate_consistence(const list<Conflict>& conflicts, const PriorityGraph &G) ;
 
 

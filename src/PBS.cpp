@@ -131,8 +131,8 @@ void PBS::find_conflicts(list<Conflict>& conflicts, int a1, int a2, int adaptive
 	}
 	else
 	{
-        cout << "Window: " << window << endl;
-        cout << "Adaptive window: " << adaptive_window << endl;
+//        cout << "Window: " << window << endl;
+//        cout << "Adaptive window: " << adaptive_window << endl;
         // print min path length of all agent path
         int min_path_length = std::numeric_limits<int>::max();
         for (int i = 0; i < num_of_agents; i++)
@@ -140,7 +140,7 @@ void PBS::find_conflicts(list<Conflict>& conflicts, int a1, int a2, int adaptive
             if (paths[i] != nullptr && (int)paths[i]->size() < min_path_length)
                 min_path_length = paths[i]->size();
         }
-        cout << "Min path length: " << min_path_length << endl;
+//        cout << "Min path length: " << min_path_length << endl;
 		int size1 = min(window + 1, (int)paths[a1]->size());
 		int size2 = min(window + 1, (int)paths[a2]->size());
 		for (int timestep = 0; timestep < size1; timestep++)
@@ -418,7 +418,7 @@ void PBS::find_replan_agents(PBSNode* node, const list<Conflict>& conflicts,
 }
 
 
-bool PBS::find_consistent_paths(PBSNode* node, int agent)
+bool PBS::find_consistent_paths(PBSNode* node, int agent, int adaptive_window)
 {
     clock_t t = clock();
     int count = 0; // count the times that we call the low-level search.
@@ -449,7 +449,7 @@ bool PBS::find_consistent_paths(PBSNode* node, int agent)
         }
         remove_conflicts(node->conflicts, a);
         list<Conflict> new_conflicts;
-        find_conflicts(new_conflicts, a);
+        find_conflicts(new_conflicts, a, adaptive_window);
         /*t2 = clock();
         std::list< std::shared_ptr<Conflict> > new_conflicts = pt.add(paths[a], a);
         runtime_detect_conflicts += (double)(std::clock() - t2) / CLOCKS_PER_SEC;*/
@@ -521,7 +521,7 @@ bool PBS::generate_child(PBSNode* node, PBSNode* parent, int adaptive_window)
         node->priorities.add(node->priority.first, node->priority.second);
         runtime_copy_priorities += (double)(std::clock() - t) / CLOCKS_PER_SEC;
         copy_conflicts(node->parent->conflicts, node->conflicts, -1); // copy all conflicts
-        if (!find_consistent_paths(node, node->priority.first))
+        if (!find_consistent_paths(node, node->priority.first, adaptive_window))
             return false;
     }
 
@@ -607,7 +607,7 @@ bool PBS::generate_root_node()
     find_conflicts(dummy_start->conflicts, dummy_start->adaptive_window);
     if (!lazyPriority)
     {
-        if(!find_consistent_paths(dummy_start, -1))
+        if(!find_consistent_paths(dummy_start, -1, dummy_start->adaptive_window))
             return false;
     }
 
@@ -823,12 +823,19 @@ bool PBS::run(const vector<State>& starts,
 
 	runtime = (double)(std::clock() - start) / CLOCKS_PER_SEC;
     get_solution();
-	if (solution_found && !validate_solution())
+    int min_path_length = std::numeric_limits<int>::max();
+    for (int i = 0; i < num_of_agents; i++)
+    {
+        if (paths[i] != nullptr && (int)paths[i]->size() < min_path_length)
+            min_path_length = paths[i]->size();
+    }
+	if (solution_found && !validate_solution(min_path_length))
 	{
         std::cout << "Solution invalid!!!" << std::endl;
         // print_paths();
         exit(-1);
 	}
+    cout << "Adaptive window : " << min_path_length << endl;
     min_sum_of_costs = 0;
     for (int i = 0; i < num_of_agents; i++)
     {
@@ -841,6 +848,8 @@ bool PBS::run(const vector<State>& starts,
     }
 	if (screen > 0) // 1 or 2
 		print_results();
+
+
 	return solution_found;
 }
 
@@ -873,14 +882,14 @@ PBS::~PBS()
 }
 
 
-bool PBS::validate_solution()
+bool PBS::validate_solution(int adaptive_window)
 {
     list<Conflict> conflict;
 	for (int a1 = 0; a1 < num_of_agents; a1++)
 	{
 		for (int a2 = a1 + 1; a2 < num_of_agents; a2++)
 		{
-            find_conflicts(conflict, a1, a2);
+            find_conflicts(conflict, a1, a2, adaptive_window);
             if (!conflict.empty())
             {
                 int a1_, a2_, loc1, loc2, t;
